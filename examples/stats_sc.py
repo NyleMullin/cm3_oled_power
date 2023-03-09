@@ -20,6 +20,16 @@ import sys
 sys.path.append('/home/cm3/system/') # reletive path todo
 import globalvars
 import powerbutton
+import signal
+
+class GracefulKiller:
+  kill_now = False
+  def __init__(self):
+    signal.signal(signal.SIGINT, self.exit_gracefully)
+    signal.signal(signal.SIGTERM, self.exit_gracefully)
+
+  def exit_gracefully(self, *args):
+    self.kill_now = True
 
 
 def read_oled(command):
@@ -105,7 +115,7 @@ def main():
 
     pos = startpos
 
-    while True:
+    while not killer.kill_now:
         # if changed == True:
         #     break
         # Draw a black filled box to clear the image.
@@ -174,4 +184,5 @@ def main():
         time.sleep(0.05)
 
 if __name__ == '__main__':
+    killer = GracefulKiller()
     main()
