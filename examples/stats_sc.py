@@ -38,7 +38,6 @@ def read_oled(command):
         # Reading from json file
         json_object = json.load(openfile)
         print(json_object)
-
     if command == 'CPU':
         globalvars.display = json_object["system"]["CPU"]
         print(f'Setting Oled to show {command}')
@@ -116,8 +115,6 @@ def main():
     pos = startpos
 
     while not killer.kill_now:
-        # if changed == True:
-        #     break
         # Draw a black filled box to clear the image.
         draw.rectangle((0, 0, width, height), outline=0, fill=0)
 
