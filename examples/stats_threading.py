@@ -15,6 +15,7 @@ import busio
 from PIL import Image, ImageDraw, ImageFont
 import adafruit_ssd1306
 import json
+import threading
 
 import sys
 sys.path.append('/home/cm3/system/') # reletive path todo
@@ -54,9 +55,88 @@ def read_oled(command):
         globalvars.display = json_object["network"]["IP"]
         print(f'Setting Oled to show {command}')
         globalvars.changed = True
+
+
+def updateJson(lock):
+    lock.acquire()
+
+    cmd = "hostname -I | cut -d' ' -f1"
+    IP = subprocess.check_output(cmd, shell=True).decode("utf-8")
+    IP = IP.rstrip('\n')
+
+    cmd = 'cut -f 1 -d " " /proc/loadavg'
+    CPU = subprocess.check_output(cmd, shell=True).decode("utf-8")
+    CPU = CPU.rstrip('\n')
+
+    cmd = "free -m | awk 'NR==2{printf \"Mem: %s/%s MB  %.2f%%\", $3,$2,$3*100/$2 }'"
+    MemUsage = subprocess.check_output(cmd, shell=True).decode("utf-8")
+
+    cmd = 'df -h | awk \'$NF=="/"{printf "Disk: %d/%d GB  %s", $3,$2,$5}\''
+    Disk = subprocess.check_output(cmd, shell=True).decode("utf-8")
+
+    cmd = "ip addr show $(awk 'NR==3{print $1}' /proc/net/wireless | tr -d :) | awk '/ether/{print $2}'"
+    MAC = subprocess.check_output(cmd, shell=True).decode("utf-8")
+
+    cmd = "hostnamectl | grep hostname | awk '{print $2,$3}'"
+    Hostname = subprocess.check_output(cmd, shell=True).decode("utf-8")
+
+    cmd = "sudo netstat -tuwanp4 | awk '{print $4}' | grep ':' | cut -d ':' -f 2 | sort | uniq"
+    Ports = subprocess.check_output(cmd, shell=True).decode("utf-8")
+
+    cmd = "iwconfig wlan0 | grep Freq | awk '{print $2,$3}' | cut -d':' -f2"
+    Freq = subprocess.check_output(cmd, shell=True).decode("utf-8")
+
+    cmd = """iwconfig wlan0 | grep ESSID | awk '{print $4}' | cut -d'"' -f2"""
+    SSID = subprocess.check_output(cmd, shell=True).decode("utf-8")
+
+    cmd = "who | wc -l"
+    Clients = subprocess.check_output(cmd, shell=True).decode("utf-8")
+
+    # Data to be written
+    data = {
+        "system":{
+            "CPU": CPU,
+            "Mem": MemUsage,
+            "Disk": Disk,
+            "Hostname": Hostname,
+        },
+        "network":{
+            "IP": IP,
+            "MAC": MAC,
+            "SSID": SSID,
+            "Ports": Ports,
+            "Freq": Freq,
+            "Clients": Clients,
+        },
+        "link":{
+            "Connected": False,
+            "Strength": False,
+        },
+        "battery":{
+            "Charging": False,
+            "Percentage": False,
+            "TTC": False,
+            "TTD": False,
+            "Volt": False,
+        },
+        "mapping":{
+            "Running": False,
+            "Style": False,
+            "Tileset": False,
+        },
+        "systemlog":{
+            "Systemlog": False,
+        },
+    }
+
+    with open('/home/cm3/system/state.json', 'w', encoding='utf-8') as f: # reletive path todo
+        json.dump(data, f, ensure_ascii=False, indent=4)
+    
+    lock.release()
+
     
 
-def main():
+def run_oled(lock):
     powerbutton.init()
 
     # Create the I2C interface.
@@ -120,78 +200,6 @@ def main():
 
         #draw.text((x, top + 0), "IP: " + IP, font=font, fill=255)
 
-        cmd = "hostname -I | cut -d' ' -f1"
-        IP = subprocess.check_output(cmd, shell=True).decode("utf-8")
-        IP = IP.rstrip('\n')
-
-        cmd = 'cut -f 1 -d " " /proc/loadavg'
-        CPU = subprocess.check_output(cmd, shell=True).decode("utf-8")
-        CPU = CPU.rstrip('\n')
-
-        cmd = "free -m | awk 'NR==2{printf \"Mem: %s/%s MB  %.2f%%\", $3,$2,$3*100/$2 }'"
-        MemUsage = subprocess.check_output(cmd, shell=True).decode("utf-8")
-
-        cmd = 'df -h | awk \'$NF=="/"{printf "Disk: %d/%d GB  %s", $3,$2,$5}\''
-        Disk = subprocess.check_output(cmd, shell=True).decode("utf-8")
-
-        cmd = "ip addr show $(awk 'NR==3{print $1}' /proc/net/wireless | tr -d :) | awk '/ether/{print $2}'"
-        MAC = subprocess.check_output(cmd, shell=True).decode("utf-8")
-
-        cmd = "hostnamectl | grep hostname | awk '{print $2,$3}'"
-        Hostname = subprocess.check_output(cmd, shell=True).decode("utf-8")
-
-        cmd = "sudo netstat -tuwanp4 | awk '{print $4}' | grep ':' | cut -d ':' -f 2 | sort | uniq"
-        Ports = subprocess.check_output(cmd, shell=True).decode("utf-8")
-
-        cmd = "iwconfig wlan0 | grep Freq | awk '{print $2,$3}' | cut -d':' -f2"
-        Freq = subprocess.check_output(cmd, shell=True).decode("utf-8")
-
-        cmd = """iwconfig wlan0 | grep ESSID | awk '{print $4}' | cut -d'"' -f2"""
-        SSID = subprocess.check_output(cmd, shell=True).decode("utf-8")
-
-        cmd = "who | wc -l"
-        Clients = subprocess.check_output(cmd, shell=True).decode("utf-8")
-
-        # Data to be written
-        data = {
-            "system":{
-                "CPU": CPU,
-                "Mem": MemUsage,
-                "Disk": Disk,
-                "Hostname": Hostname,
-            },
-            "network":{
-                "IP": IP,
-                "MAC": MAC,
-                "SSID": SSID,
-                "Ports": Ports,
-                "Freq": Freq,
-                "Clients": Clients,
-            },
-            "link":{
-                "Connected": False,
-                "Strength": False,
-            },
-            "battery":{
-                "Charging": False,
-                "Percentage": False,
-                "TTC": False,
-                "TTD": False,
-                "Volt": False,
-            },
-            "mapping":{
-                "Running": False,
-                "Style": False,
-                "Tileset": False,
-            },
-            "systemlog":{
-                "Systemlog": False,
-            },
-        }
-
-        with open('/home/cm3/system/state.json', 'w', encoding='utf-8') as f: # reletive path todo
-            json.dump(data, f, ensure_ascii=False, indent=4)
-
         # Display image.
         x = pos
         for i, c in enumerate(globalvars.display):
@@ -224,6 +232,22 @@ def main():
 
         # Pause briefly before drawing next frame.
         time.sleep(0.05)
+
+def main():
+    # creating a lock
+    lock = threading.Lock()
+
+    # creating threads
+    t1 = threading.Thread(target=run_oled, args=(lock,))
+    t2 = threading.Thread(target=updateJson, args=(lock,))
+
+    # start threads
+    t1.start()
+    t2.start()
+  
+    # wait until threads finish their job
+    t1.join()
+    t2.join()
 
 if __name__ == '__main__':
     killer = GracefulKiller()

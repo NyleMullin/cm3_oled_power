@@ -29,6 +29,7 @@ disp.rotation = 2
 
 # Clear display.
 disp.fill(0)
+disp.write_cmd(0x2E)
 disp.show()
 
 # Create blank image for drawing.

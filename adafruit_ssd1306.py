@@ -57,6 +57,7 @@ SET_DISP_CLK_DIV = const(0xD5)
 SET_PRECHARGE = const(0xD9)
 SET_VCOM_DESEL = const(0xDB)
 SET_CHARGE_PUMP = const(0x8D)
+SET_STOP_SCROLL = const(0x2E)
 
 
 class _SSD1306(framebuf.FrameBuffer):
@@ -120,6 +121,7 @@ class _SSD1306(framebuf.FrameBuffer):
         #   64, 48:         0x80         0x12
         #   64, 32:         0x80         0x12
         for cmd in (
+            SET_STOP_SCROLL,
             SET_DISP,  # off
             # address setting
             SET_MEM_ADDR,
